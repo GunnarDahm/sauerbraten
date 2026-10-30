@@ -13,6 +13,8 @@ set(SDL_SHARED ON CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 add_subdirectory(${DEPS}/SDL2 SDL2)
+# SDL2_image/SDL2_mixer look for SDL2::SDL2-static when built static; point them at the shared SDL2
+add_library(SDL2::SDL2-static ALIAS SDL2)
 
 # the SDL add-on libraries are linked statically into libmain.so
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -48,6 +50,8 @@ set(STATICLIB ON CACHE BOOL "" FORCE)
 set(USE_ANDROID_LOG ON CACHE BOOL "" FORCE)
 set(DEFAULT_ES 2 CACHE STRING "" FORCE)
 add_subdirectory(${DEPS}/gl4es gl4es)
+# gl4es puts its library in its own source tree by default, which all ABIs would share
+set_target_properties(GL PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gl4es/lib)
 
 # enet
 file(GLOB ENET_SOURCES ${SRC}/enet/*.c)

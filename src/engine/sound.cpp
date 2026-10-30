@@ -675,6 +675,11 @@ COMMAND(resetsound, "");
 
 #include <unistd.h>
 
+#ifdef __ANDROID__
+// bionic advertises POSIX shared memory but has no shm_open (and there is no Mumble anyway)
+#undef _POSIX_SHARED_MEMORY_OBJECTS
+#endif
+
 #ifdef _POSIX_SHARED_MEMORY_OBJECTS
 #include <sys/types.h>
 #include <sys/stat.h>
