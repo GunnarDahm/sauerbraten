@@ -1112,6 +1112,9 @@ int main(int argc, char **argv)
     {
         defformatstring(gamedir)("%s/game", &argv[i][2]);
         if(chdir(gamedir) < 0) fatal("could not find game data in %s", gamedir);
+        // SDL_RWFromFile (used by SDL_image/SDL_mixer) ignores the working directory on Android and
+        // looks up relative paths in internal storage and the APK assets, so findfile must give absolute paths
+        addpackagedir(gamedir);
         defformatstring(homedir)("%s/home", &argv[i][2]);
         const char *dir = sethomedir(homedir);
         if(dir) logoutf("Using home directory: %s", dir);
