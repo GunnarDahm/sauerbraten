@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId 'org.sauerbraten.game'
-        minSdk 21
+        minSdk 24 // 64-bit file offsets (fseeko/ftello) on 32-bit ARM need API 24
         targetSdk 34
         versionCode 1
         versionName '0.1-android'

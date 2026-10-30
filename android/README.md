@@ -21,6 +21,8 @@ debug key, so it can be sideloaded but not uploaded to the Play Store.
 
 ## Installing and testing
 
+Requires Android 7.0 (API 24) or newer.
+
 ```sh
 adb install -r app-release.apk
 adb logcat -s sauerbraten SDL GL4ES AndroidRuntime
