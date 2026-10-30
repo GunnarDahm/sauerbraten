@@ -21,6 +21,11 @@ jobs:
   android:
     name: Android APK
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # publish the android-latest release
+    concurrency:
+      group: android-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/master' }} # never interrupt a release
     steps:
       - uses: actions/checkout@v4
 
@@ -50,3 +55,18 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release.apk
           compression-level: 0
           retention-days: 30
+
+      # master builds replace the android-latest prerelease, so there is a stable link that
+      # downloads the APK directly (Actions artifacts can't be downloaded in the GitHub app)
+      - name: Publish android-latest release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk sauerbraten-android.apk
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest sauerbraten-android.apk \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Latest Android build" \
+            --notes "Test build of master at ${GITHUB_SHA::7}, rebuilt on every push to master. Requires Android 7.0+; signed with a debug key for sideloading. See android/README.md for install and controller details."
