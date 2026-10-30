@@ -146,9 +146,17 @@ PFNGLFOGCOORDPOINTEREXTPROC glFogCoordPointer_ = NULL;
 PFNGLMAPBUFFERRANGEPROC         glMapBufferRange_         = NULL;
 PFNGLFLUSHMAPPEDBUFFERRANGEPROC glFlushMappedBufferRange_ = NULL;
 
+#ifdef USE_GLES
+#include <gl4esinit.h>
+#endif
+
 void *getprocaddress(const char *name)
 {
+#ifdef USE_GLES
+    return gl4es_GetProcAddress(name);
+#else
     return SDL_GL_GetProcAddress(name);
+#endif
 }
 
 VARP(ati_skybox_bug, 0, 0, 1);
@@ -918,6 +926,8 @@ void fixcamerarange()
     while(camera1->yaw>=360.0f) camera1->yaw -= 360.0f;
 }
 
+void lookdelta(float dyaw, float dpitch);
+
 void mousemove(int dx, int dy)
 {
     if(!game::allowmouselook()) return;
@@ -937,8 +947,13 @@ void mousemove(int dx, int dy)
     }
     if(curaccel && curtime && (dx || dy)) cursens += curaccel * sqrtf(dx*dx + dy*dy)/curtime;
     cursens /= 33.0f*sensitivityscale;
-    camera1->yaw += dx*cursens;
-    camera1->pitch -= dy*cursens*(invmouse ? -1 : 1);
+    lookdelta(dx*cursens, -dy*cursens*(invmouse ? -1 : 1));
+}
+
+void lookdelta(float dyaw, float dpitch)
+{
+    camera1->yaw += dyaw;
+    camera1->pitch += dpitch;
     fixcamerarange();
     if(camera1!=player && !detachedcamera)
     {
@@ -1782,7 +1797,7 @@ void drawminimap()
 
     renderprogress(0, "generating mini-map...", 0, !renderedframe);
 
-    int size = 1<<minimapsize, sizelimit = min(hwtexsize, min(screen->w, screen->h));
+    int size = 1<<minimapsize, sizelimit = min(hwtexsize, min(screenw, screenh));
     while(size > sizelimit) size /= 2;
     if(!minimaptex) glGenTextures(1, &minimaptex);
 
@@ -1880,7 +1895,7 @@ void drawminimap()
     glDisable(GL_CULL_FACE);
     glDisable(GL_FOG);
 
-    glViewport(0, 0, screen->w, screen->h);
+    glViewport(0, 0, screenw, screenh);
 
     camera1 = oldcamera;
     envmapping = minimapping = false;
@@ -1921,15 +1936,15 @@ FVARP(motionblurscale, 0, 0.5f, 1);
 
 void addmotionblur()
 {
-    if(!motionblur || !hasTR || max(screen->w, screen->h) > hwtexsize) return;
+    if(!motionblur || !hasTR || max(screenw, screenh) > hwtexsize) return;
 
     if(game::ispaused()) { lastmotion = 0; return; }
 
-    if(!motiontex || motionw != screen->w || motionh != screen->h)
+    if(!motiontex || motionw != screenw || motionh != screenh)
     {
         if(!motiontex) glGenTextures(1, &motiontex);
-        motionw = screen->w;
-        motionh = screen->h;
+        motionw = screenw;
+        motionh = screenh;
         lastmotion = 0;
         createtexture(motiontex, motionw, motionh, NULL, 3, 0, GL_RGB, GL_TEXTURE_RECTANGLE_ARB);
     }
@@ -1975,7 +1990,7 @@ void addmotionblur()
     {
         lastmotion = lastmillis - lastmillis%motionblurmillis;
 
-        glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, 0, 0, 0, 0, screen->w, screen->h);
+        glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, 0, 0, 0, 0, screenw, screenh);
     }
 }
 

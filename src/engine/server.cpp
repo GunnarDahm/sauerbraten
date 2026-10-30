@@ -973,7 +973,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
     int status = standalonemain(args.length()-1, args.getbuf());
     #define main standalonemain
 #else
-    SDL_SetModuleHandle(hInst);
+    SDL_SetMainReady();
     int status = SDL_main(args.length()-1, args.getbuf());
 #endif
     delete[] buf;
@@ -994,6 +994,18 @@ void logoutfv(const char *fmt, va_list args)
         if(outhandle) writeline(line);
     }
     else if(logfile) writelogv(logfile, fmt, args);
+}
+
+#elif defined(__ANDROID__)
+#include <android/log.h>
+
+void logoutfv(const char *fmt, va_list args)
+{
+    va_list logargs;
+    va_copy(logargs, args);
+    __android_log_vprint(ANDROID_LOG_INFO, "sauerbraten", fmt, logargs);
+    va_end(logargs);
+    if(logfile) writelogv(logfile, fmt, args);
 }
 
 #else

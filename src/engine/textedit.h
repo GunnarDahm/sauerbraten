@@ -510,7 +510,7 @@ struct editor
                 cooked = '\n';
                 // fall through
             default:
-                insert(cooked);
+                if(cooked) insert(cooked);
                 break;
         }
     }

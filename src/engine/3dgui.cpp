@@ -323,8 +323,8 @@ struct gui : g3d_gui
                 glEnable(GL_TEXTURE_2D);
                 defaultshader->set();
             }
-            int x1 = int(floor(screen->w*(xi*scale.x+origin.x))), y1 = int(floor(screen->h*(1 - ((yi+ys)*scale.y+origin.y)))),
-                x2 = int(ceil(screen->w*((xi+xs)*scale.x+origin.x))), y2 = int(ceil(screen->h*(1 - (yi*scale.y+origin.y))));
+            int x1 = int(floor(screenw*(xi*scale.x+origin.x))), y1 = int(floor(screenh*(1 - ((yi+ys)*scale.y+origin.y)))),
+                x2 = int(ceil(screenw*((xi+xs)*scale.x+origin.x))), y2 = int(ceil(screenh*(1 - (yi*scale.y+origin.y))));
             glViewport(x1, y1, x2-x1, y2-y1);
             glScissor(x1, y1, x2-x1, y2-y1);
             glEnable(GL_SCISSOR_TEST);
@@ -335,7 +335,7 @@ struct gui : g3d_gui
             glEnable(GL_BLEND);
             modelpreview::end();
             glDisable(GL_SCISSOR_TEST);
-            glViewport(0, 0, screen->w, screen->h);
+            glViewport(0, 0, screenw, screenh);
             if(overlaid)
             {
                 if(hit)
@@ -376,8 +376,8 @@ struct gui : g3d_gui
                 glEnable(GL_TEXTURE_2D);
                 defaultshader->set();
             }
-            int x1 = int(floor(screen->w*(xi*scale.x+origin.x))), y1 = int(floor(screen->h*(1 - ((yi+ys)*scale.y+origin.y)))),
-                x2 = int(ceil(screen->w*((xi+xs)*scale.x+origin.x))), y2 = int(ceil(screen->h*(1 - (yi*scale.y+origin.y))));
+            int x1 = int(floor(screenw*(xi*scale.x+origin.x))), y1 = int(floor(screenh*(1 - ((yi+ys)*scale.y+origin.y)))),
+                x2 = int(ceil(screenw*((xi+xs)*scale.x+origin.x))), y2 = int(ceil(screenh*(1 - (yi*scale.y+origin.y))));
             glViewport(x1, y1, x2-x1, y2-y1);
             glScissor(x1, y1, x2-x1, y2-y1);
             glEnable(GL_SCISSOR_TEST);
@@ -400,7 +400,7 @@ struct gui : g3d_gui
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glEnable(GL_BLEND);
             glDisable(GL_SCISSOR_TEST);
-            glViewport(0, 0, screen->w, screen->h);
+            glViewport(0, 0, screenw, screenh);
             if(overlaid)
             {
                 if(hit)
@@ -889,7 +889,7 @@ struct gui : g3d_gui
         if(tcurrent) h += ((skiny[5]-skiny[1])-(skiny[3]-skiny[2]))*SKIN_SCALE + FONTH-2*INSERT;
         else h += (skiny[6]-skiny[3])*SKIN_SCALE;
 
-        float aspect = forceaspect ? 1.0f/forceaspect : float(screen->h)/float(screen->w), fit = 1.0f;
+        float aspect = forceaspect ? 1.0f/forceaspect : float(screenh)/float(screenw), fit = 1.0f;
         if(w*aspect*basescale>1.0f) fit = 1.0f/(w*aspect*basescale);
         if(h*basescale*fit>maxscale) fit *= maxscale/(h*basescale*fit);
         origin = vec(0.5f-((w-xsize)/2 - (skinx[2]-skinx[1])*SKIN_SCALE)*aspect*scale.x*fit, 0.5f + (0.5f*h-(skiny[9]-skiny[7])*SKIN_SCALE)*scale.y*fit, 0);
@@ -1105,7 +1105,7 @@ static vector<gui> guis2d, guis3d;
 
 VARP(guipushdist, 1, 4, 64);
 
-bool menukey(int code, bool isdown, int cooked)
+bool menukey(int code, bool isdown)
 {
     editor *e = currentfocus();
     if(fieldmode == FIELDKEY)
@@ -1178,7 +1178,7 @@ bool menukey(int code, bool isdown, int cooked)
             return true;
         case SDLK_RETURN:
         case SDLK_TAB:
-            if(cooked && (e->maxy != 1)) break;
+            if(e->maxy != 1) break;
         case SDLK_KP_ENTER:
             if(isdown) fieldmode = FIELDCOMMIT; //signal field commit (handled when drawing field)
             return true;
@@ -1198,11 +1198,20 @@ bool menukey(int code, bool isdown, int cooked)
         case -5:
             break;
         default:
-            if(!cooked || (code<32)) return false;
-            break;
+            // printable characters arrive separately through menutextinput, but swallow
+            // the key itself so it doesn't trigger a bind while typing in the field
+            return code > 0;
     }
     if(!isdown) return true;
-    e->key(code, cooked);
+    e->key(code, code == SDLK_TAB ? '\t' : 0);
+    return true;
+}
+
+bool menutextinput(int cooked)
+{
+    editor *e = currentfocus();
+    if(fieldmode == FIELDKEY || fieldmode == FIELDSHOW || !e) return fieldmode == FIELDKEY;
+    e->key(0, cooked);
     return true;
 }
 
@@ -1223,8 +1232,16 @@ bool g3d_movecursor(int dx, int dy)
 {
     if(!guis2d.length() || !hascursor) return false;
     const float CURSORSCALE = 500.0f;
-    cursorx = max(0.0f, min(1.0f, cursorx+guisens*dx*(screen->h/(screen->w*CURSORSCALE))));
+    cursorx = max(0.0f, min(1.0f, cursorx+guisens*dx*(screenh/(screenw*CURSORSCALE))));
     cursory = max(0.0f, min(1.0f, cursory+guisens*dy/CURSORSCALE));
+    return true;
+}
+
+bool g3d_setcursor(float x, float y)
+{
+    if(!guis2d.length() || !hascursor) return false;
+    cursorx = clamp(x, 0.0f, 1.0f);
+    cursory = clamp(y, 0.0f, 1.0f);
     return true;
 }
 
@@ -1341,7 +1358,7 @@ void g3d_render()
     if(!fieldsactive) fieldmode = FIELDSHOW; //didn't draw any fields, so loose focus - mainly for menu closed
     if((fieldmode!=FIELDSHOW) != wasfocused) 
     {
-        SDL_EnableUNICODE(fieldmode!=FIELDSHOW);
+        textinput(fieldmode!=FIELDSHOW, TI_GUI);
         keyrepeat(fieldmode!=FIELDSHOW || editmode);
     }
     

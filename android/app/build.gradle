@@ -1,0 +1,96 @@
+plugins {
+    id 'com.android.application'
+}
+
+def repoRoot = file('../..')
+def gameAssetsDir = layout.buildDirectory.dir('generated/gameassets').get().asFile
+
+android {
+    namespace 'org.sauerbraten.game'
+    compileSdk 34
+    ndkVersion '27.2.12479018'
+
+    defaultConfig {
+        applicationId 'org.sauerbraten.game'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '0.1-android'
+
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // signed with the debug key so the test build can be sideloaded directly
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'jni/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += ['../deps/SDL2/android-project/app/src/main/java']
+            assets.srcDirs += [gameAssetsDir]
+        }
+    }
+
+    androidResources {
+        // keep directories starting with '_' and other files aapt skips by default
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+        // already-compressed formats: storing them avoids slow, pointless recompression
+        noCompress 'ogz', 'jpg', 'png', 'ogg', 'zip'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+// Packs the game's data/ and packages/ directories into the APK under assets/game/,
+// together with a file list and a content stamp the launcher uses to unpack them on first run.
+def prepareGameAssets = tasks.register('prepareGameAssets') {
+    def sources = ['data', 'packages'].collect { new File(repoRoot, it) }
+    inputs.files(sources)
+    outputs.dir(gameAssetsDir)
+    doLast {
+        def outDir = gameAssetsDir
+        project.delete(outDir)
+        def gameDir = new File(outDir, 'game')
+        def list = []
+        def digest = java.security.MessageDigest.getInstance('SHA-1')
+        sources.each { src ->
+            project.copy {
+                from src
+                into new File(gameDir, src.name)
+            }
+            project.fileTree(src).visit { details ->
+                if(!details.directory) {
+                    def rel = src.name + '/' + details.relativePath.pathString
+                    list << rel
+                    digest.update("${rel}:${details.file.length()}:${details.file.lastModified()}\n".getBytes('UTF-8'))
+                }
+            }
+        }
+        list.sort()
+        new File(gameDir, 'filelist.txt').text = list.join('\n') + '\n'
+        new File(gameDir, 'stamp.txt').text = digest.digest().encodeHex().toString() + '\n'
+    }
+}
+
+tasks.named('preBuild') { dependsOn prepareGameAssets }
