@@ -44,7 +44,7 @@ override WINDRES+= -F pe-i386
 endif
 CLIENT_INCLUDES= $(INCLUDES) -Iinclude
 STD_LIBS= -static-libgcc -static-libstdc++
-CLIENT_LIBS= -mwindows $(STD_LIBS) -L$(WINBIN) -L$(WINLIB) -lSDL -lSDL_image -lSDL_mixer -lzlib1 -lopengl32 -lenet -lws2_32 -lwinmm
+CLIENT_LIBS= -mwindows $(STD_LIBS) -L$(WINBIN) -L$(WINLIB) -lSDL2 -lSDL2_image -lSDL2_mixer -lzlib1 -lopengl32 -lenet -lws2_32 -lwinmm
 else	
 ifneq (,$(findstring DARWIN,$(PLATFORM)))
 ifneq (,$(findstring CROSS,$(PLATFORM)))
@@ -61,12 +61,12 @@ OSXMIN= 10.6
 override CC+= -arch x86_64 -mmacosx-version-min=$(OSXMIN)
 override CXX+= -arch x86_64 -mmacosx-version-min=$(OSXMIN)
 CLIENT_INCLUDES= $(INCLUDES) -Iinclude
-CLIENT_LIBS= -Fxcode/Frameworks -framework SDL -framework SDL_image
-CLIENT_LIBS+= -framework SDL_mixer -framework CoreAudio -framework AudioToolbox
+CLIENT_LIBS= -Fxcode/Frameworks -framework SDL2 -framework SDL2_image
+CLIENT_LIBS+= -framework SDL2_mixer -framework CoreAudio -framework AudioToolbox
 CLIENT_LIBS+= -framework AudioUnit -framework OpenGL -framework Cocoa -lz -Lenet -lenet
 else
-CLIENT_INCLUDES= $(INCLUDES) -I/usr/X11R6/include `sdl-config --cflags`
-CLIENT_LIBS= -Lenet -lenet -L/usr/X11R6/lib -lX11 `sdl-config --libs` -lSDL_image -lSDL_mixer -lz -lGL
+CLIENT_INCLUDES= $(INCLUDES) `sdl2-config --cflags`
+CLIENT_LIBS= -Lenet -lenet `sdl2-config --libs` -lSDL2_image -lSDL2_mixer -lz -lGL
 endif
 endif
 ifeq ($(PLATFORM),LINUX)
@@ -92,6 +92,7 @@ CLIENT_OBJS= \
 	engine/cubeloader.o \
 	engine/decal.o \
 	engine/dynlight.o \
+	engine/gamepad.o \
 	engine/glare.o \
 	engine/grass.o \
 	engine/lightmap.o \
@@ -303,6 +304,11 @@ engine/dynlight.o: shared/ents.h shared/command.h shared/iengine.h
 engine/dynlight.o: shared/igame.h engine/world.h engine/glexts.h
 engine/dynlight.o: engine/octa.h engine/lightmap.h engine/bih.h
 engine/dynlight.o: engine/texture.h engine/model.h engine/varray.h
+engine/gamepad.o: engine/engine.h shared/cube.h shared/tools.h shared/geom.h
+engine/gamepad.o: shared/ents.h shared/command.h shared/iengine.h
+engine/gamepad.o: shared/igame.h engine/world.h engine/glexts.h
+engine/gamepad.o: engine/octa.h engine/lightmap.h engine/bih.h
+engine/gamepad.o: engine/texture.h engine/model.h engine/varray.h
 engine/glare.o: engine/engine.h shared/cube.h shared/tools.h shared/geom.h
 engine/glare.o: shared/ents.h shared/command.h shared/iengine.h
 engine/glare.o: shared/igame.h engine/world.h engine/glexts.h engine/octa.h

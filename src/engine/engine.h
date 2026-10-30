@@ -29,7 +29,8 @@ extern const uchar fvmasks[64];
 extern const uchar faceedgesidx[6][4];
 extern bool inbetweenframes, renderedframe;
 
-extern SDL_Surface *screen;
+extern SDL_Window *screen;
+extern int screenw, screenh;
 extern int zpass, glowpass;
 
 extern vector<int> entgroup;
@@ -376,7 +377,15 @@ extern void checksleep(int millis);
 extern void clearsleep(bool clearoverrides = true);
 
 // console
-extern void keypress(int code, bool isdown, int cooked);
+extern void keypress(int code, bool isdown);
+extern void textinputchar(int cooked);
+enum { TI_CONSOLE = 1<<0, TI_GUI = 1<<1 };
+extern void textinput(bool on, int mask);
+
+// gamepad
+extern void initgamepads();
+extern void updategamepads();
+extern bool gamepadevent(const SDL_Event &e);
 extern int rendercommand(int x, int y, int w);
 extern int renderconsole(int w, int h, int abovehud);
 extern void conoutf(const char *s, ...) PRINTFARGS(1, 2);

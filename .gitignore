@@ -1,0 +1,7 @@
+# build products
+*.o
+*.a
+*.gch
+src/sauer_client
+src/sauer_server
+src/sauer_master
