@@ -2,6 +2,10 @@
 
 #include "engine.h"
 
+#ifdef __ANDROID__
+#include <unistd.h>
+#endif
+
 extern void cleargamma();
 
 SDL_Window *screen = NULL;
@@ -1100,10 +1104,24 @@ int main(int argc, char **argv)
     char *load = NULL, *initscript = NULL;
 
     initing = INIT_RESET;
+#ifdef __ANDROID__
+    // the Java launcher unpacks the game data and passes its location as -A<path>
+    SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    for(int i = 1; i<argc; i++) if(argv[i][0]=='-' && argv[i][1]=='A')
+    {
+        defformatstring(gamedir)("%s/game", &argv[i][2]);
+        if(chdir(gamedir) < 0) fatal("could not find game data in %s", gamedir);
+        defformatstring(homedir)("%s/home", &argv[i][2]);
+        const char *dir = sethomedir(homedir);
+        if(dir) logoutf("Using home directory: %s", dir);
+    }
+#endif
     for(int i = 1; i<argc; i++)
     {
         if(argv[i][0]=='-') switch(argv[i][1])
         {
+            case 'A': /* parsed first */ break;
             case 'q': 
 			{
 				const char *dir = sethomedir(&argv[i][2]);
@@ -1117,7 +1135,7 @@ int main(int argc, char **argv)
     {
         if(argv[i][0]=='-') switch(argv[i][1])
         {
-            case 'q': /* parsed first */ break;
+            case 'A': case 'q': /* parsed first */ break;
             case 'r': /* compat, ignore */ break;
             case 'k':
             {

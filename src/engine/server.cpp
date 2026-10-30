@@ -996,6 +996,18 @@ void logoutfv(const char *fmt, va_list args)
     else if(logfile) writelogv(logfile, fmt, args);
 }
 
+#elif defined(__ANDROID__)
+#include <android/log.h>
+
+void logoutfv(const char *fmt, va_list args)
+{
+    va_list logargs;
+    va_copy(logargs, args);
+    __android_log_vprint(ANDROID_LOG_INFO, "sauerbraten", fmt, logargs);
+    va_end(logargs);
+    if(logfile) writelogv(logfile, fmt, args);
+}
+
 #else
 
 void logoutfv(const char *fmt, va_list args)
