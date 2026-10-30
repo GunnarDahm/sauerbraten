@@ -6,8 +6,12 @@ work through SDL's GameController support.
 
 ## Getting a build
 
-Every push builds an APK on GitHub Actions (workflow `build`, job "Android APK").
-Download the `sauerbraten-android` artifact from the run and unzip it to get `app-release.apk`.
+The latest build of `master` is always at the
+[android-latest release](https://github.com/GunnarDahm/sauerbraten/releases/tag/android-latest):
+open it on the phone and tap `sauerbraten-android.apk` to download and install.
+
+Every push (including pull requests) also builds an APK on GitHub Actions; it is attached
+to the run as the `sauerbraten-android` artifact (a zip, downloadable from a browser).
 
 To build locally you need JDK 17, the Android SDK (platform 34) and NDK 27.2.12479018:
 
