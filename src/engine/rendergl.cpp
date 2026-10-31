@@ -483,6 +483,10 @@ void gl_checkextensions()
             else
 #endif
             if(glslversion >= 130) preferglsl = 1;
+#ifdef USE_GLES
+            // gl4es reports GLSL 1.20, but its GLSL path is far better than its fixed-function emulation
+            preferglsl = 1;
+#endif
         }
     }
 
@@ -595,7 +599,12 @@ void gl_checkextensions()
         if(dbgexts) conoutf(CON_INIT, "Using GL_EXT_bindable_uniform extension.");
     }
 
+#ifdef USE_GLES
+    // gl4es advertises texture rectangles, but its GLSL translation can't compile sampler2DRect
+    if(false)
+#else
     if(hasext(exts, "GL_EXT_texture_rectangle") || hasext(exts, "GL_ARB_texture_rectangle"))
+#endif
     {
         usetexrect = 1;
         hasTR = true;
@@ -833,7 +842,12 @@ void cleanupgl()
 #define VARRAY_INTERNAL
 #include "varray.h"
 
+#ifdef USE_GLES
+// gl4es crashes emulating glPolygonMode(GL_LINE) on VBO geometry, so the line-mode editor views are off
+VAR(wireframe, 0, 0, 0);
+#else
 VAR(wireframe, 0, 0, 1);
+#endif
 
 ICOMMAND(getcamyaw, "", (), floatret(camera1->yaw));
 ICOMMAND(getcampitch, "", (), floatret(camera1->pitch));

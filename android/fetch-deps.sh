@@ -5,10 +5,22 @@ set -e
 cd "$(dirname "$0")"
 mkdir -p deps
 
-fetch() # name url ref
+# applies android/patches/<name>/*.patch on top of a pristine checkout
+patch_dep() # name
+{
+    git -C "deps/$1" checkout -q -- .
+    for p in patches/"$1"/*.patch; do
+        [ -f "$p" ] || continue
+        git -C "deps/$1" apply "$(pwd)/$p"
+        echo "deps/$1: applied $(basename "$p")"
+    done
+}
+
+fetch() # name url ref commit
 {
     if [ -d "deps/$1/.git" ] && [ "$(git -C "deps/$1" rev-parse HEAD)" = "$4" ]; then
         echo "deps/$1 is up to date"
+        patch_dep "$1"
         return
     fi
     rm -rf "deps/$1"
@@ -21,6 +33,7 @@ fetch() # name url ref
         exit 1
     fi
     echo "fetched deps/$1 ($3)"
+    patch_dep "$1"
 }
 
 fetch SDL2       https://github.com/libsdl-org/SDL.git       release-2.30.9 c98c4fbff6d8f3016a3ce6685bf8f43433c3efcc

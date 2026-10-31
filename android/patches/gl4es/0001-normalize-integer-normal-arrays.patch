@@ -1,0 +1,13 @@
+diff --git a/src/gl/gl4es.c b/src/gl/gl4es.c
+index 8a2f4e7..a122b7c 100644
+--- a/src/gl/gl4es.c
++++ b/src/gl/gl4es.c
+@@ -96,7 +96,7 @@ void APIENTRY_GL4ES gl4es_glNormalPointer(GLenum type, GLsizei stride, const GLv
+     DBG(printf("glNormalPointer(%s, %d, %p)\n", PrintEnum(type), stride, pointer);)
+     noerrorShimNoPurge();
+     break_lockarrays(ATT_NORMAL);
+-    clone_gl_pointer(glstate->vao->vertexattrib[ATT_NORMAL], 3, GL_FALSE);
++    clone_gl_pointer(glstate->vao->vertexattrib[ATT_NORMAL], 3, (type==GL_FLOAT)?GL_FALSE:GL_TRUE);
+ }
+ void APIENTRY_GL4ES gl4es_glTexCoordPointer(GLint size, GLenum type,
+                      GLsizei stride, const GLvoid *pointer) {
