@@ -577,7 +577,12 @@ static void disabletexgen(int dims = 2)
     if(dims>=2) glDisable(GL_TEXTURE_GEN_T);
 }
 
+#ifdef USE_GLES
+// gl4es crashes emulating glPolygonMode(GL_LINE) on VBO geometry, so the line-mode editor views are off
+VAR(outline, 0, 0, 0);
+#else
 VAR(outline, 0, 0, 1);
+#endif
 HVARP(outlinecolour, 0, 0, 0xFFFFFF);
 VAR(dtoutline, 0, 1, 1);
 

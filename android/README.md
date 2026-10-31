@@ -20,6 +20,9 @@ android/fetch-deps.sh
 cd android && ./gradlew assembleRelease
 ```
 
+`fetch-deps.sh` also applies the fixes in `android/patches/<dependency>/` (currently a
+gl4es fix for integer normal arrays, which otherwise breaks specular and parallax lighting).
+
 The APK lands in `android/app/build/outputs/apk/release/`. It is signed with the
 debug key, so it can be sideloaded but not uploaded to the Play Store.
 

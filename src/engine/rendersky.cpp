@@ -351,7 +351,12 @@ void cleanupsky()
 }
 
 VARP(sparklyfix, 0, 0, 1);
-VAR(showsky, 0, 1, 1); 
+#ifdef USE_GLES
+// gl4es crashes emulating glPolygonMode(GL_LINE) on VBO geometry, so the line-mode editor views are off
+VAR(showsky, 0, 0, 0);
+#else
+VAR(showsky, 0, 1, 1);
+#endif
 VAR(clipsky, 0, 1, 1);
 
 bool drawskylimits(bool explicitonly)
