@@ -67,3 +67,10 @@ Buttons are bindable keys named `PAD_A`, `PAD_B`, ..., `PAD_LT`, `PAD_RT` (see
 Tap to click menu items. In game, dragging a finger turns the view. There are no
 on-screen move or fire buttons yet, so playing needs a controller or keyboard.
 The Android back button acts as Escape.
+
+### Multiplayer
+
+The game speaks protocol 260 (Sauerbraten 2020 Edition), the version public servers run,
+so servers from the master list can be joined. Some maps in the 2020 server rotations are
+not in this tree's `packages/base`; on those you connect but the map won't load.
+Co-op edit sync of undo/redo and of texture slot changes (vslots) is not supported.

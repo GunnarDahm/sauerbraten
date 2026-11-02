@@ -427,6 +427,18 @@ struct ctfclientmode : clientmode
                     putint(p, int(f.droploc.z*DMF));
                 }
             }
+            if(m_hold)
+            {
+                // protocol 260: team holding the flag and how long it has been held
+                clientinfo *owner = f.owner>=0 ? getinfo(f.owner) : NULL;
+                int holdteam = owner ? ctfteamflag(owner->team) : 0;
+                if(!holdteam) putint(p, -1);
+                else
+                {
+                    putint(p, holdteam);
+                    putint(p, (lastmillis - f.owntime) / 100);
+                }
+            }
         }
     }
 
@@ -707,12 +719,17 @@ struct ctfclientmode : clientmode
         int numflags = getint(p);
         loopi(numflags)
         {
-            int version = getint(p), spawn = getint(p), owner = getint(p), invis = getint(p), dropped = 0;
+            int version = getint(p), spawn = getint(p), owner = getint(p), invis = getint(p), dropped = 0, holdteam = -1, holdtime = 0;
             vec droploc(0, 0, 0);
             if(owner<0)
             {
                 dropped = getint(p);
                 if(dropped) loopk(3) droploc[k] = getint(p)/DMF;
+            }
+            if(m_hold)
+            {
+                holdteam = getint(p);
+                if(holdteam >= 0) holdtime = getint(p)*100;
             }
             if(p.overread()) break;
             if(commit && flags.inrange(i))
@@ -722,6 +739,7 @@ struct ctfclientmode : clientmode
                 f.spawnindex = spawn;
                 if(m_hold) spawnflag(f);
                 f.owner = owner>=0 ? (owner==player1->clientnum ? player1 : newclient(owner)) : NULL;
+                if(f.owner && holdteam >= 0) f.owntime = lastmillis - holdtime;
                 f.droptime = dropped;
                 f.droploc = dropped ? droploc : f.spawnloc;
                 f.vistime = invis>0 ? 0 : -1000;

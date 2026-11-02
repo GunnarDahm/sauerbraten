@@ -596,6 +596,10 @@ namespace game
         needclipboard = -1;
     }
 
+    // collect c2s messages conveniently
+    vector<uchar> messages;
+    int messagecn = -1, messagereliable = false;
+
     void edittrigger(const selinfo &sel, int op, int arg1, int arg2, int arg3)
     {
         if(m_edit) switch(op)
@@ -631,7 +635,6 @@ namespace game
             }
             case EDIT_MAT:
             case EDIT_FACE:
-            case EDIT_TEX:
             {
                 addmsg(N_EDITF + op, "ri9i6",
                    sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
@@ -639,12 +642,24 @@ namespace game
                    arg1, arg2);
                 break;
             }
-            case EDIT_REPLACE:
+            // protocol 260 appends a length-prefixed blob of packed vslots to texture edits;
+            // we never pack vslots, so send an empty blob
+            case EDIT_TEX:
             {
-                addmsg(N_EDITF + op, "ri9i7",
+                if(addmsg(N_EDITF + op, "ri9i6",
                    sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
                    sel.cx, sel.cxs, sel.cy, sel.cys, sel.corner,
-                   arg1, arg2, arg3);
+                   arg1, arg2))
+                    { messages.add(0); messages.add(0); } // zero length
+                break;
+            }
+            case EDIT_REPLACE:
+            {
+                if(addmsg(N_EDITF + op, "ri9i7",
+                   sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
+                   sel.cx, sel.cxs, sel.cy, sel.cys, sel.corner,
+                   arg1, arg2, arg3))
+                    { messages.add(0); messages.add(0); } // zero length
                 break;
             }
             case EDIT_REMIP:
@@ -735,13 +750,10 @@ namespace game
 
     int scaletime(int t) { return t*gamespeed; }
 
-    // collect c2s messages conveniently
-    vector<uchar> messages;
-    int messagecn = -1, messagereliable = false;
 
-    void addmsg(int type, const char *fmt, ...)
+    bool addmsg(int type, const char *fmt, ...)
     {
-        if(!connected) return;
+        if(!connected) return false;
         static uchar buf[MAXTRANS];
         ucharbuf p(buf, sizeof(buf));
         putint(p, type);
@@ -800,6 +812,7 @@ namespace game
             messagecn = mcn;
         }
         messages.put(buf, p.length());
+        return true;
     }
 
     void connectattempt(const char *name, const char *password, const ENetAddress &address)
@@ -1139,6 +1152,17 @@ namespace game
         }
     }
 
+    // protocol 260 texture edits carry a length-prefixed blob of packed vslots
+    static bool skipvslots(ucharbuf &p)
+    {
+        if(p.remaining() < 2) return false;
+        int extra = p.get();
+        extra |= p.get()<<8;
+        if(p.remaining() < extra) return false;
+        p.subbuf(extra);
+        return true;
+    }
+
     void parsestate(fpsent *d, ucharbuf &p, bool resume = false)
     {
         if(!d) { static fpsent dummy; d = &dummy; }
@@ -1148,6 +1172,7 @@ namespace game
             else d->state = getint(p);
             d->frags = getint(p);
             d->flags = getint(p);
+            d->deaths = getint(p);
             if(d==player1) getint(p);
             else d->quadmillis = getint(p);
         }
@@ -1551,6 +1576,16 @@ namespace game
                 break;
             }
 
+            case N_UNDO:
+            case N_REDO:
+            {
+                // undo/redo sync isn't supported by this client; skip the payload
+                getint(p); getint(p);
+                int packlen = getint(p);
+                p.subbuf(max(packlen, 0));
+                break;
+            }
+
             case N_EDITF:              // coop editing messages
             case N_EDITT:
             case N_EDITM:
@@ -1560,6 +1595,7 @@ namespace game
             case N_ROTATE:
             case N_REPLACE:
             case N_DELCUBE:
+            case N_EDITVSLOT:
             {
                 if(!d) return;
                 selinfo sel;
@@ -1573,14 +1609,27 @@ namespace game
                 switch(type)
                 {
                     case N_EDITF: dir = getint(p); mode = getint(p); if(sel.validate()) mpeditface(dir, mode, sel, false); break;
-                    case N_EDITT: tex = getint(p); allfaces = getint(p); if(sel.validate()) mpedittex(tex, allfaces, sel, false); break;
+                    case N_EDITT:
+                        tex = getint(p); allfaces = getint(p);
+                        if(!skipvslots(p)) return;
+                        if(sel.validate()) mpedittex(tex, allfaces, sel, false);
+                        break;
                     case N_EDITM: mat = getint(p); filter = getint(p); if(sel.validate()) mpeditmat(mat, filter, sel, false); break;
                     case N_FLIP: if(sel.validate()) mpflip(sel, false); break;
                     case N_COPY: if(d && sel.validate()) mpcopy(d->edit, sel, false); break;
                     case N_PASTE: if(d && sel.validate()) mppaste(d->edit, sel, false); break;
                     case N_ROTATE: dir = getint(p); if(sel.validate()) mprotate(dir, sel, false); break;
-                    case N_REPLACE: tex = getint(p); newtex = getint(p); insel = getint(p); if(sel.validate()) mpreplacetex(tex, newtex, insel>0, sel, false); break;
+                    case N_REPLACE:
+                        tex = getint(p); newtex = getint(p); insel = getint(p);
+                        if(!skipvslots(p)) return;
+                        if(sel.validate()) mpreplacetex(tex, newtex, insel>0, sel, false);
+                        break;
                     case N_DELCUBE: if(sel.validate()) mpdelcube(sel, false); break;
+                    case N_EDITVSLOT:
+                        // vslot edits aren't supported by this client; skip them
+                        getint(p); getint(p);
+                        if(!skipvslots(p)) return;
+                        break;
                 }
                 break;
             }
@@ -1852,6 +1901,7 @@ namespace game
             case N_DEMOPACKET: return;
             case N_SENDDEMO:
             {
+                getint(p); // request tag
                 defformatstring(fname)("%d.dmo", lastmillis);
                 stream *demo = openrawfile(fname, "wb");
                 if(!demo) return;
@@ -1939,7 +1989,7 @@ namespace game
     {
         if(i<=0) conoutf("getting demo...");
         else conoutf("getting demo %d...", i);
-        addmsg(N_GETDEMO, "ri", i);
+        addmsg(N_GETDEMO, "rii", i, 0);
     }
     ICOMMAND(getdemo, "i", (int *val), getdemo(*val));
 
