@@ -1151,13 +1151,13 @@ namespace server
         }
     }
 
-    void senddemo(clientinfo *ci, int num)
+    void senddemo(clientinfo *ci, int num, int tag)
     {
         if(ci->getdemo) return;
         if(!num) num = demos.length();
         if(!demos.inrange(num-1)) return;
         demofile &d = demos[num-1];
-        if((ci->getdemo = sendf(ci->clientnum, 2, "rim", N_SENDDEMO, d.len, d.data)))
+        if((ci->getdemo = sendf(ci->clientnum, 2, "riim", N_SENDDEMO, tag, d.len, d.data)))
             ci->getdemo->freeCallback = freegetdemo;
     }
 
@@ -1512,7 +1512,7 @@ namespace server
         }
 
         uchar operator[](int msg) const { return msg >= 0 && msg < NUMMSG ? msgmask[msg] : 0; }
-    } msgfilter(-1, N_CONNECT, N_SERVINFO, N_INITCLIENT, N_WELCOME, N_MAPCHANGE, N_SERVMSG, N_DAMAGE, N_HITPUSH, N_SHOTFX, N_EXPLODEFX, N_DIED, N_SPAWNSTATE, N_FORCEDEATH, N_TEAMINFO, N_ITEMACC, N_ITEMSPAWN, N_TIMEUP, N_CDIS, N_CURRENTMASTER, N_PONG, N_RESUME, N_BASESCORE, N_BASEINFO, N_BASEREGEN, N_ANNOUNCE, N_SENDDEMOLIST, N_SENDDEMO, N_DEMOPLAYBACK, N_SENDMAP, N_DROPFLAG, N_SCOREFLAG, N_RETURNFLAG, N_RESETFLAG, N_INVISFLAG, N_CLIENT, N_AUTHCHAL, N_INITAI, N_EXPIRETOKENS, N_DROPTOKENS, N_STEALTOKENS, N_DEMOPACKET, -2, N_REMIP, N_NEWMAP, N_GETMAP, N_SENDMAP, N_CLIPBOARD, -3, N_EDITENT, N_EDITF, N_EDITT, N_EDITM, N_FLIP, N_COPY, N_PASTE, N_ROTATE, N_REPLACE, N_DELCUBE, N_EDITVAR, -4, N_POS, NUMMSG),
+    } msgfilter(-1, N_CONNECT, N_SERVINFO, N_INITCLIENT, N_WELCOME, N_MAPCHANGE, N_SERVMSG, N_DAMAGE, N_HITPUSH, N_SHOTFX, N_EXPLODEFX, N_DIED, N_SPAWNSTATE, N_FORCEDEATH, N_TEAMINFO, N_ITEMACC, N_ITEMSPAWN, N_TIMEUP, N_CDIS, N_CURRENTMASTER, N_PONG, N_RESUME, N_BASESCORE, N_BASEINFO, N_BASEREGEN, N_ANNOUNCE, N_SENDDEMOLIST, N_SENDDEMO, N_DEMOPLAYBACK, N_SENDMAP, N_DROPFLAG, N_SCOREFLAG, N_RETURNFLAG, N_RESETFLAG, N_INVISFLAG, N_CLIENT, N_AUTHCHAL, N_INITAI, N_EXPIRETOKENS, N_DROPTOKENS, N_STEALTOKENS, N_DEMOPACKET, -2, N_REMIP, N_NEWMAP, N_GETMAP, N_SENDMAP, N_CLIPBOARD, -3, N_EDITENT, N_EDITF, N_EDITT, N_EDITM, N_FLIP, N_COPY, N_PASTE, N_ROTATE, N_REPLACE, N_DELCUBE, N_EDITVAR, N_EDITVSLOT, N_UNDO, N_REDO, -4, N_POS, NUMMSG),
       connectfilter(-1, N_CONNECT, -2, N_AUTHANS, -3, N_PING, NUMMSG);
 
     int checktype(int type, clientinfo *ci)
@@ -1893,6 +1893,7 @@ namespace server
                 putint(p, oi->state.state);
                 putint(p, oi->state.frags);
                 putint(p, oi->state.flags);
+                putint(p, oi->state.deaths);
                 putint(p, oi->state.quadmillis);
                 sendstate(oi->state, p);
             }
@@ -1918,8 +1919,8 @@ namespace server
     void sendresume(clientinfo *ci)
     {
         gamestate &gs = ci->state;
-        sendf(-1, 1, "ri3i9vi", N_RESUME, ci->clientnum,
-            gs.state, gs.frags, gs.flags, gs.quadmillis,
+        sendf(-1, 1, "ri3i4i6vi", N_RESUME, ci->clientnum,
+            gs.state, gs.frags, gs.flags, gs.deaths, gs.quadmillis,
             gs.lifesequence,
             gs.health, gs.maxhealth,
             gs.armour, gs.armourtype,
@@ -3384,9 +3385,9 @@ namespace server
 
             case N_GETDEMO:
             {
-                int n = getint(p);
+                int n = getint(p), tag = getint(p);
                 if(!ci->privilege && !ci->local && ci->state.state==CS_SPECTATOR) break;
-                senddemo(ci, n);
+                senddemo(ci, n, tag);
                 break;
             }
 
@@ -3550,6 +3551,43 @@ namespace server
                 ci->clipboard->referenceCount++;
                 break;
             } 
+
+            case N_EDITT:
+            case N_REPLACE:
+            case N_EDITVSLOT:
+            {
+                // protocol 260: fixed fields followed by a length-prefixed blob of packed vslots
+                int size = server::msgsizelookup(type);
+                if(size<=0) { disconnect_client(sender, DISC_MSGERR); return; }
+                loopi(size-1) getint(p);
+                if(p.remaining() < 2) { disconnect_client(sender, DISC_MSGERR); return; }
+                int extra = p.get();
+                extra |= p.get()<<8;
+                if(p.remaining() < extra) { disconnect_client(sender, DISC_MSGERR); return; }
+                p.subbuf(extra);
+                if(ci && ci->state.state!=CS_SPECTATOR) QUEUE_MSG;
+                break;
+            }
+
+            case N_UNDO:
+            case N_REDO:
+            {
+                int unpacklen = getint(p), packlen = getint(p);
+                if(!ci || ci->state.state==CS_SPECTATOR || packlen <= 0 || packlen > (1<<16) || unpacklen <= 0)
+                {
+                    if(packlen > 0) p.subbuf(packlen);
+                    break;
+                }
+                if(p.remaining() < packlen) { disconnect_client(sender, DISC_MSGERR); return; }
+                packetbuf q(32 + packlen, ENET_PACKET_FLAG_RELIABLE);
+                putint(q, type);
+                putint(q, ci->clientnum);
+                putint(q, unpacklen);
+                putint(q, packlen);
+                if(packlen > 0) p.get(q.subbuf(packlen).buf, packlen);
+                sendpacket(-1, 1, q.finalize(), ci->clientnum);
+                break;
+            }
 
             case N_SERVCMD:
                 getstring(text, p);
